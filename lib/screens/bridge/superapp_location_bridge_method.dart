@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:mfar_superapp/screens/bridge/default_miniapp_bridge_class.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'mini_app_bridge_controller.dart';
@@ -33,30 +34,64 @@ void registerSuperAppLocationBridgeMethod(MiniAppBridgeController bridgeControll
           debugPrint("Permission request result: $status");
         }
 
-        // 3. Determine the final status string to send back
-        String statusString;
-        switch (status) {
-          case PermissionStatus.granted:
-          case PermissionStatus.limited: // iOS specific, treated as granted for simplicity here
-            statusString = 'granted';
-          case PermissionStatus.denied:
-            statusString = 'denied';
-          case PermissionStatus.permanentlyDenied:
-            statusString = 'permanentlyDenied';
-          case PermissionStatus.restricted: // iOS specific
-            statusString = 'restricted';
-          default:
-            statusString = 'unknown';
+        // 3. Prepare base response data
+        final Map<String, dynamic> responseData = {'status': _mapPermissionStatusToString(status)};
+
+        // 4. If permission is granted (or limited on iOS), try to get the location
+        if (status == PermissionStatus.granted || status == PermissionStatus.limited) {
+          try {
+            // --- Use Geolocator or your LocationHandler ---
+            // Example using Geolocator:
+            // bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+            // if (!serviceEnabled) {
+            //   responseData['error'] = 'Location services are disabled.';
+            // } else {
+            Position position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high, // Adjust as needed
+            );
+            // Add location data to the response
+            responseData['latitude'] = position.latitude;
+            responseData['longitude'] = position.longitude;
+            responseData['timestamp'] = position.timestamp.toIso8601String(); // Optional
+            // You could add accuracy, altitude, etc. if needed
+            debugPrint("Location acquired: ${position.latitude}, ${position.longitude}");
+            // }
+            // --- End Geolocator ---
+          } catch (locationError) {
+            debugPrint("Error getting location data: $locationError");
+            // Even if permission is granted, getting the location might fail
+            responseData['error'] = 'Failed to get location data: $locationError';
+            // Status remains 'granted', but data fetch failed
+          }
+        } else {
+          // If not granted, no location data will be included.
+          // The status string already reflects this (denied, permanentlyDenied, etc.)
         }
 
-        debugPrint("Final Location permission status: $statusString");
-
-        // 4. Send the status back to the web miniapp
-        return BridgeResponse.success({'status': statusString});
-      } catch (e) {
-        debugPrint("Error checking/requesting location permission: $e");
-        return BridgeResponse.error('Failed to check/request location permission: $e');
+        // 5. Send the combined response (status, potentially location data, potentially error)
+        debugPrint("Sending location response to web miniapp: $responseData");
+        return BridgeResponse.success(responseData);
+      } catch (e, stackTrace) {
+        debugPrint("Error in getLocation handler: $e\nStack Trace: $stackTrace");
+        return BridgeResponse.error('Failed to check/request location or get data: $e');
       }
     },
   );
+}
+
+// Helper function to map PermissionStatus to a consistent string
+String _mapPermissionStatusToString(PermissionStatus status) {
+  switch (status) {
+    case PermissionStatus.granted:
+    case PermissionStatus.limited: // iOS specific, treat as granted for simplicity here
+      return 'granted';
+    case PermissionStatus.denied:
+      return 'denied';
+    case PermissionStatus.permanentlyDenied:
+      return 'permanentlyDenied';
+    case PermissionStatus.restricted: // iOS specific
+      return 'restricted';
+    default:
+      return 'unknown';
+  }
 }

@@ -43,7 +43,7 @@ void registerSuperAppBaseBridgeMethod(
         final String message = params?['message'] as String? ?? 'Message';
 
         // 2. Show the dialog using the reusable component with the captured 'context'
-        await CustomDialog.show(context, title: title, message: message, backgroundColor: Colors.grey);
+        await CustomDialog.show(context, title: title, message: message, backgroundColor: Colors.white);
         debugPrint("Dialog shown successfully.");
 
         return BridgeResponse.success({'shown': true});
