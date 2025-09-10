@@ -13,12 +13,10 @@ enum SuperAppLocationBridgeMethod {
 }
 
 void registerSuperAppLocationBridgeMethod(MiniAppBridgeController bridgeController, BuildContext context) {
-  // Register the 'getLocation' method
   bridgeController.registerMethod(
-    DefaultMiniAppBridgeClass.superAppLocation.value, // Bridge Class
-    SuperAppLocationBridgeMethod.getLocation.value, // Method Name
+    DefaultMiniAppBridgeClass.superAppLocation.value,
+    SuperAppLocationBridgeMethod.getLocation.value,
     (params) async {
-      // This method is called when the web miniapp sends { class: 'superAppLocation', method: 'getLocation' }
       debugPrint("Web MiniApp requested location permission status.");
 
       try {
@@ -40,23 +38,26 @@ void registerSuperAppLocationBridgeMethod(MiniAppBridgeController bridgeControll
         // 4. If permission is granted (or limited on iOS), try to get the location
         if (status == PermissionStatus.granted || status == PermissionStatus.limited) {
           try {
-            // --- Use Geolocator or your LocationHandler ---
-            // Example using Geolocator:
-            // bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-            // if (!serviceEnabled) {
-            //   responseData['error'] = 'Location services are disabled.';
-            // } else {
-            Position position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high, // Adjust as needed
-            );
-            // Add location data to the response
-            responseData['latitude'] = position.latitude;
-            responseData['longitude'] = position.longitude;
-            responseData['timestamp'] = position.timestamp.toIso8601String(); // Optional
-            // You could add accuracy, altitude, etc. if needed
-            debugPrint("Location acquired: ${position.latitude}, ${position.longitude}");
-            // }
-            // --- End Geolocator ---
+            // Check if location services are enabled (good practice)
+            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+            if (!serviceEnabled) {
+              responseData['error'] = 'Location services are disabled on the device.';
+            } else {
+              // Create LocationSettings object
+              // LocationSettings is the base class, you can be more specific:
+              // AndroidSettings, AppleSettings, WebSettings if needed.
+              LocationSettings locationSettings = LocationSettings(
+                accuracy: LocationAccuracy.high,
+                distanceFilter: 10, // meters
+              );
+
+              Position position = await Geolocator.getCurrentPosition(locationSettings: locationSettings);
+              // Add location data to the response
+              responseData['latitude'] = position.latitude;
+              responseData['longitude'] = position.longitude;
+              responseData['timestamp'] = position.timestamp.toIso8601String();
+              debugPrint("Location acquired: ${position.latitude}, ${position.longitude}");
+            }
           } catch (locationError) {
             debugPrint("Error getting location data: $locationError");
             // Even if permission is granted, getting the location might fail
